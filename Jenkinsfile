@@ -2,22 +2,35 @@ pipeline {
     agent any
 
     stages {
-        stage('Test: Listar Arquivos') {
+        stage('Build') {
+            agent {
+                dockerfile { filename 'Dockerfile.build' } 
+            }
             steps {
-                // O checkout já aconteceu antes deste passo.
-                // Se chegarmos aqui, significa que o código foi baixado.
-                echo '>>> O checkout do Git parece ter funcionado!'
-                echo '>>> Verificando os arquivos na pasta de trabalho (workspace):'
-                
-                // Comando para listar arquivos (funciona em Linux e Windows)
-                sh 'ls -la' 
+                echo "--- Inspecionando a sintaxe do código Python ---"
+                sh 'python -m py_compile src/conversor.py'
+            }
+        }
+
+        stage('Test') {
+            agent {
+                dockerfile { filename 'Dockerfile.test' } 
+            }
+            steps {
+                echo "--- Executando testes com Pytest ---"
+                sh 'pytest --junitxml=report.xml tests/' // Gera um relatório que o Jenkins entende
+            }
+            post {
+                always {
+                    junit 'report.xml'
+                }
             }
         }
     }
-    
     post {
         always {
-            echo '>>> Fim do pipeline de teste.'
+            echo "Pipeline finalizada. Limpando o workspace."
+            cleanWs() 
         }
     }
 }
